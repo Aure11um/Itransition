@@ -15,11 +15,10 @@ def parse_ruby_record(record_str: str) -> dict:
     pattern = r':(\w+)\s*=>\s*["\']?(.*?)["\']?(?:,|$)'
     for m in re.finditer(pattern, record_str):
         key = m.group(1)
-        val = m.group(2).strip('"\'') # Убираем оставшиеся кавычки
+        val = m.group(2).strip('"\'')
         result[key] = val
     return result
 
-# splitting the overall row into separate entries using the separator "}, {"
 records = [parse_ruby_record(rs) for rs in record_strings if rs.strip()]
 
 print(f"Parsed {len(records)} records") # output of the number of successfully processed records
