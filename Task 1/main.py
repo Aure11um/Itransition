@@ -2,35 +2,30 @@ import re
 import sqlite3
 
 # reading and parsing a file (Just reading the entire file in one line) 
-raw = open("task1_d.json").read()
+with open("Task 1/task1_d.json", "r", encoding="utf-8") as f:
+    raw = f.read()
+
+# a more reliable way
+record_strings = re.findall(r'\{(.*?)\}', raw, re.DOTALL)
 
 # the function turns a string into a Python dictionary
 def parse_ruby_record(record_str: str) -> dict:
     result = {}
-    # the first RegEx takes the lines, pattern :key=>"value"
-    for m in re.finditer(r':(\w+)=>"([^"]*)"', record_str):
-        result[m.group(1)] = m.group(2)
-    # the second RegEx takes the numbers, pattern :key=>"number"
-    for m in re.finditer(r':(\w+)=>(\d+)', record_str):
+    # universal expression, pattern :key=>"value"
+    pattern = r':(\w+)\s*=>\s*["\']?(.*?)["\']?(?:,|$)'
+    for m in re.finditer(pattern, record_str):
         key = m.group(1)
-        # if the key is not yet in the dictionary, save it as an integer.
-        if key not in result:
-            result[key] = int(m.group(2))
+        val = m.group(2).strip('"\'') # Убираем оставшиеся кавычки
+        result[key] = val
     return result
 
 # splitting the overall row into separate entries using the separator "}, {"
-record_strings = re.split(r'\},\s*\{', raw.strip().lstrip('[').rstrip(']'))
-
-records = []
-for rs in record_strings:
-    rec = parse_ruby_record(rs)
-    if rec:
-        records.append(rec)
+records = [parse_ruby_record(rs) for rs in record_strings if rs.strip()]
 
 print(f"Parsed {len(records)} records") # output of the number of successfully processed records
 
 # the database file is created here and the structure of the main books.db table is determined
-conn = sqlite3.connect("books.db") # creating a connection to the database file
+conn = sqlite3.connect("Task 1/books.db") # creating a connection to the database file
 cur = conn.cursor() # cursor object for executing SQL commands
 
 # recreating the table so that the data is not duplicated when running it again
@@ -76,8 +71,8 @@ cur.execute("""
         ROUND(
             AVG(
                 CASE
-                    WHEN price LIKE '$%' THEN CAST(SUBSTR(price,2) AS REAL) -- if the price is in dollars, we cut off the $ and convert it to a number
-                    WHEN price LIKE '€%' THEN CAST(SUBSTR(price,2) AS REAL) * 1.2 -- if it is in euros, we convert it to dollars at the rate of 1.2
+                    WHEN price LIKE '$%' THEN CAST(REPLACE(REPLACE(price, '$', ''), '€', '') AS REAL) -- if the price is in dollars, we cut off the $ and convert it to a number
+                    WHEN price LIKE '€%' THEN CAST(REPLACE(REPLACE(price, '$', ''), '€', '') AS REAL) * 1.2 -- if it is in euros, we convert it to dollars at the rate of 1.2
                     ELSE NULL
                 END
             ), 2
@@ -105,4 +100,3 @@ for row in rows:
     print(f"{row[0]:>16}  {row[1]:>10}  {row[2]:>13.2f}")
  
 conn.close() # closing the connection to the database
-print("\nDone. Database saved to /home/claude/books.db")
